@@ -154,6 +154,9 @@ public interface ICommand extends IAccept {
 	static public interface Iexit extends ICommand {
 	}
 	
+	static public interface Ireset extends ICommand {
+		
+	}
 	/** Interface to be implemented by all objects representing SMT-LIB get-assertions commands. */
 	static public interface Iget_assertions extends ICommand {
 	}

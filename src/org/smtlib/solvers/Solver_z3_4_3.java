@@ -7,7 +7,7 @@ package org.smtlib.solvers;
 
 // Items not implemented:
 //   attributed expressions
-//   get-values get-assignment get-proof get-unsat-core
+//   get-values
 //   some error detection and handling
 
 import java.io.FileOutputStream;
@@ -99,12 +99,9 @@ public class Solver_z3_4_3 extends AbstractSolver implements ISolver {
 	public IResponse start() {
 		try {
 			solverProcess.start(false);
-			// FIXME - enable the following lines when the Z3 solver supports them
-//			if (smtConfig.solverVerbosity > 0) solverProcess.sendNoListen("(set-option :verbosity ",Integer.toString(smtConfig.solverVerbosity),")");
-//			if (!smtConfig.batch) solverProcess.sendNoListen("(set-option :interactive-mode true)"); // FIXME - not sure we can do this - we'll lose the feedback
+			if (smtConfig.solverVerbosity > 0) solverProcess.sendNoListen("(set-option :verbosity ",Integer.toString(smtConfig.solverVerbosity),")");
 			// Can't turn off printing success, or we get no feedback
 			solverProcess.sendAndListen("(set-option :print-success true)\n"); // Z3 4.3.0 needs this because it mistakenly has the default for :print-success as false
-			//if (smtConfig.nosuccess) solverProcess.sendAndListen("(set-option :print-success false)");
 			if (smtConfig.verbose != 0) smtConfig.log.logDiag("Started Z3-4.3 ");
 			return smtConfig.responseFactory.success();
 		} catch (Exception e) {
@@ -118,13 +115,23 @@ public class Solver_z3_4_3 extends AbstractSolver implements ISolver {
 			solverProcess.sendAndListen("(exit)\n");
 			solverProcess.exit();
 			if (smtConfig.verbose != 0) smtConfig.log.logDiag("Ended Z3 ");
-			//process = null;
 			return smtConfig.responseFactory.success_exit();
 		} catch (IOException e) {
 			return smtConfig.responseFactory.error("Error writing to Z3 solver: " + e);
 		}
 	}
 
+	@Override
+	public IResponse reset() {
+		try {
+			String s = solverProcess.sendAndListen("(reset)\n");
+			IResponse response = parseResponse(s);
+			return response;
+		} catch (IOException e) {
+			return smtConfig.responseFactory.error("Error writing to Z3 solver: " + e);
+		}
+	}
+	
 	/** Translates an S-expression into Z3 syntax */
 	protected String translate(IAccept sexpr) throws IVisitor.VisitorException {
 		// The z3 solver uses the standard S-expression concrete syntax, but not quite
@@ -156,8 +163,6 @@ public class Solver_z3_4_3 extends AbstractSolver implements ISolver {
 			}
 			if (response.contains("error")) {
 				// Z3 returns an s-expr (always?)
-				// FIXME - (1) the {Print} also needs {Space}; (2) err_getValueTypes.tst returns a non-error s-expr and then an error s-expr - this fails for that case
-				//Pattern p = Pattern.compile("\\p{Space}*\\(\\p{Blank}*error\\p{Blank}+\"(([\\p{Space}\\p{Print}^[\\\"\\\\]]|\\\\\")*)\"\\p{Blank}*\\)\\p{Space}*");
 				Pattern p = Pattern.compile("\\p{Space}*\\(\\p{Blank}*error\\p{Blank}+\"(([\\p{Print}\\p{Space}&&[^\"\\\\]]|\\\\\")*)\"\\p{Blank}*\\)");
 				Matcher m = p.matcher(response);
 				String concat = "";
@@ -186,7 +191,7 @@ public class Solver_z3_4_3 extends AbstractSolver implements ISolver {
 		if (!logicSet) {
 			return smtConfig.responseFactory.error("The logic must be set before an assert command is issued");
 		}
-		try {
+		try {			
 			String s = solverProcess.sendAndListen("(assert ",translate(sexpr),")\n");
 			response = parseResponse(s);
 			pushes++; // FIXME
@@ -204,7 +209,6 @@ public class Solver_z3_4_3 extends AbstractSolver implements ISolver {
 		if (!logicSet) {
 			return smtConfig.responseFactory.error("The logic must be set before a get-assertions command is issued");
 		}
-		// FIXME - do we really want to call get-option here? it involves going to the solver?
 		if (!smtConfig.relax && !Utils.TRUE.equals(get_option(smtConfig.exprFactory.keyword(Utils.INTERACTIVE_MODE)))) {
 			return smtConfig.responseFactory.error("The get-assertions command is only valid if :interactive-mode has been enabled");
 		}
@@ -248,24 +252,29 @@ public class Solver_z3_4_3 extends AbstractSolver implements ISolver {
 		if (!logicSet) {
 			return smtConfig.responseFactory.error("The logic must be set before a get-model command is issued");
 		}
-		// FIXME - do we really want to call get-option here? it involves going to the solver?
-		/*if (!smtConfig.relax && !Utils.TRUE.equals(get_option(smtConfig.exprFactory.keyword(Utils.INTERACTIVE_MODE)))) {
-			return smtConfig.responseFactory.error("The get-assertions command is only valid if :interactive-mode has been enabled");
-		}*/
-		try {
+		
+		if (checkSatStatus != smtConfig.responseFactory.sat()) {
+			return smtConfig.responseFactory.error("The get-proof command is only valid immediately after check-sat returned sat");
+		}
+		
+		try
+		{
 			StringBuilder sb = new StringBuilder();
 			String s;
 			int parens = 0;
-			do {
-				s = solverProcess.sendAndListen("(get-model)\n");
+			do 
+			{
+				if (parens != 0)
+					s = solverProcess.listen();
+				else
+					s = solverProcess.sendAndListen("(get-model)\n");
 				int p = -1;
 				while (( p = s.indexOf('(',p+1)) != -1) parens++;
 				p = -1;
 				while (( p = s.indexOf(')',p+1)) != -1) parens--;
-				//sb.append(s.replace('\n',' ').replace("\r",""));
+				sb.append(s.replace("\r",""));
 			} while (parens > 0);
-			
-			
+			s=sb.toString().trim();
 			try {			
 				return smtConfig.responseFactory.stringLiteral(s);				
 			} catch (Exception e ) {
@@ -286,7 +295,6 @@ public class Solver_z3_4_3 extends AbstractSolver implements ISolver {
 				return smtConfig.responseFactory.error("The logic must be set before a check-sat command is issued");
 			}
 			String s = solverProcess.sendAndListen("(check-sat)\n");
-			//smtConfig.log.logDiag("HEARD: " + s);  // FIXME - detect errors - parseResponse?
 			
 			if (s.contains("unsat")) res = smtConfig.responseFactory.unsat();
 			else if (s.contains("sat")) res = smtConfig.responseFactory.sat();
@@ -341,17 +349,17 @@ public class Solver_z3_4_3 extends AbstractSolver implements ISolver {
 
 	@Override
 	public IResponse set_logic(String logicName, /*@Nullable*/ IPos pos) {
-		// FIXME - discrimninate among logics
-		
 		if (smtConfig.verbose != 0) smtConfig.log.logDiag("#set-logic " + logicName);
 		if (logicSet) {
 			if (!smtConfig.relax) return smtConfig.responseFactory.error("Logic is already set");
 			pop(pushesStack.size());
 			push(1);
 		}
-		logicSet = true;
+		
 		try {
-			return parseResponse(solverProcess.sendAndListen("(set-logic ",logicName,")\n"));
+			IResponse resp = parseResponse(solverProcess.sendAndListen("(set-logic ",logicName,")\n"));
+			logicSet = true;
+			return resp;
 		} catch (IOException e) {
 			return smtConfig.responseFactory.error("Error writing to Z3 solver: " + e,pos);
 		}
@@ -372,7 +380,6 @@ public class Solver_z3_4_3 extends AbstractSolver implements ISolver {
 				Utils.PRODUCE_PROOFS.equals(option) ||
 				Utils.PRODUCE_UNSAT_CORES.equals(option)) {
 			if (logicSet) return smtConfig.responseFactory.error("The value of the " + option + " option must be set before the set-logic command");
-			return smtConfig.responseFactory.unsupported();
 		}
 		if (Utils.PRODUCE_MODELS.equals(option)) {
 			if (logicSet) return smtConfig.responseFactory.error("The value of the " + option + " option must be set before the set-logic command");
@@ -564,7 +571,6 @@ public class Solver_z3_4_3 extends AbstractSolver implements ISolver {
 
 	@Override 
 	public IResponse get_assignment() {
-		// FIXME - do we really want to call get-option here? it involves going to the solver?
 		if (!Utils.TRUE.equals(get_option(smtConfig.exprFactory.keyword(Utils.PRODUCE_ASSIGNMENTS)))) {
 			return smtConfig.responseFactory.error("The get-assignment command is only valid if :produce-assignments has been enabled");
 		}
@@ -594,18 +600,7 @@ public class Solver_z3_4_3 extends AbstractSolver implements ISolver {
 			}
 			String r = solverProcess.sendAndListen("))\n");
 			IResponse response = parseResponse(r);
-//			if (response instanceof ISeq) {
-//				List<ISexpr> valueslist = new LinkedList<ISexpr>();
-//				Iterator<ISexpr> iter = ((ISeq)response).sexprs().iterator();
-//				for (IExpr e: terms) {
-//					if (!iter.hasNext()) break;
-//					List<ISexpr> values = new LinkedList<ISexpr>();
-//					values.add(new Sexpr.Expr(e));
-//					values.add(iter.next());
-//					valueslist.add(new Sexpr.Seq(values));
-//				}	
-//				return new Sexpr.Seq(valueslist);
-//			}
+
 			return response;
 		} catch (IOException e) {
 			return smtConfig.responseFactory.error("Error writing to Z3 solver: " + e);
@@ -614,34 +609,9 @@ public class Solver_z3_4_3 extends AbstractSolver implements ISolver {
 		}
 	}
 
-	public class Translator extends Printer { //extends IVisitor.NullVisitor<String> {
+	public class Translator extends Printer { 
 		
 		public Translator(Writer w) { super(w); }
-
-//		@Override
-//		public String visit(IDecimal e) throws IVisitor.VisitorException {
-//			return translateSMT(e);
-//		}
-//
-//		@Override
-//		public String visit(IStringLiteral e) throws IVisitor.VisitorException {
-//			throw new VisitorException("The Z3 solver cannot handle string literals",e.pos());
-//		}
-//
-//		@Override
-//		public String visit(INumeral e) throws IVisitor.VisitorException {
-//			return e.value().toString();
-//		}
-//
-//		@Override
-//		public String visit(IBinaryLiteral e) throws IVisitor.VisitorException {
-//			return "#b" + e.value();
-//		}
-//
-//		@Override
-//		public String visit(IHexLiteral e) throws IVisitor.VisitorException {
-//			return "#x" + e.value();
-//		}
 
 		@Override
 		public Void visit(IFcnExpr e) throws IVisitor.VisitorException {
@@ -656,35 +626,6 @@ public class Solver_z3_4_3 extends AbstractSolver implements ISolver {
 				super.visit(e);
 			}
 			return null;
-//			String fcnname = fcn.accept(this);
-//			StringBuilder sb = new StringBuilder();
-//			int length = e.args().size();
-//			if (length > 2 && (fcnname.equals("=") || fcnname.equals("<") || fcnname.equals(">") || fcnname.equals("<=") || fcnname.equals(">="))) {
-//				// chainable
-//				return chainable(fcnname,iter);
-//			} else if (fcnname.equals("xor")) {
-//				// left-associative operators that need grouping
-//				return leftassoc(fcnname,length,iter);
-//			} else if (length > 1 && fcnname.equals("-")) {
-//				// left-associative operators that need grouping
-//				return leftassoc(fcnname,length,iter);
-//			} else if (fcnname.equals("=>")) {
-//				// right-associative operators that need grouping
-//				if (!iter.hasNext()) {
-//					throw new VisitorException("=> operation without arguments",e.pos());
-//				}
-//				return rightassoc(fcnname,iter);
-//			} else {
-//				// no associativity 
-//				sb.append("(");
-//				sb.append(fcnname);
-//				while (iter.hasNext()) {
-//					sb.append(" ");
-//					sb.append(iter.next().accept(this));
-//				}
-//				sb.append(")");
-//				return sb.toString();
-//			}
 		}
 
 		//@ requires iter.hasNext();
@@ -748,96 +689,5 @@ public class Solver_z3_4_3 extends AbstractSolver implements ISolver {
 				throw new IVisitor.VisitorException(ex,null); // FIXME - null ?
 			}
 		}
-
-
-//		@Override
-//		public String visit(ISymbol e) throws IVisitor.VisitorException {
-//			return translateSMT(e);
-//		}
-//
-//		@Override
-//		public String visit(IKeyword e) throws IVisitor.VisitorException {
-//			throw new VisitorException("Did not expect a Keyword in an expression to be translated",e.pos());
-//		}
-//
-//		@Override
-//		public String visit(IError e) throws IVisitor.VisitorException {
-//			throw new VisitorException("Did not expect a Error token in an expression to be translated", e.pos());
-//		}
-//
-//		private final String zeros = "00000000000000000000000000000000000000000000000000";
-//		@Override
-//		public String visit(IParameterizedIdentifier e) throws IVisitor.VisitorException {
-//			return translateSMT(e);
-//		}
-//
-//		@Override
-//		public String visit(IAsIdentifier e) throws IVisitor.VisitorException {
-//			return translateSMT(e);
-//		}
-//
-//		@Override
-//		public String visit(IForall e) throws IVisitor.VisitorException {
-//			return translateSMT(e);
-//		}
-//
-//		@Override
-//		public String visit(IExists e) throws IVisitor.VisitorException {
-//			return translateSMT(e);
-//		}
-//
-//		@Override
-//		public String visit(ILet e) throws IVisitor.VisitorException {
-//			return translateSMT(e);
-//		}
-//
-//		@Override
-//		public String visit(IAttribute<?> e) throws IVisitor.VisitorException {
-//			throw new UnsupportedOperationException("visit-IAttribute");
-//		}
-//
-//		@Override
-//		public String visit(IAttributedExpr e) throws IVisitor.VisitorException {
-//			return translateSMT(e);
-//		}
-//
-//		@Override
-//		public String visit(IDeclaration e) throws IVisitor.VisitorException {
-//			throw new UnsupportedOperationException("visit-IDeclaration");
-//		}
-//
-//		@Override
-//		public String visit(ISort.IFamily s) throws IVisitor.VisitorException {
-//			return s.identifier().accept(this);
-//		}
-//		
-//		@Override
-//		public String visit(ISort.IAbbreviation s) throws IVisitor.VisitorException {
-//			throw new UnsupportedOperationException("visit-ISort.IAbbreviation");
-//		}
-//		
-//		@Override
-//		public String visit(ISort.IApplication s) throws IVisitor.VisitorException {
-//			return translateSMT(s);
-//		}
-//		
-//		@Override
-//		public String visit(ISort.IFcnSort s) throws IVisitor.VisitorException {
-//			throw new UnsupportedOperationException("visit-ISort.IFcnSort");
-//		}
-//		
-//		@Override
-//		public String visit(ISort.IParameter s) throws IVisitor.VisitorException {
-//			throw new UnsupportedOperationException("visit-ISort.IParameter");
-//		}
-//		
-//		@Override
-//		public String visit(ICommand command) throws IVisitor.VisitorException {
-//			if (command instanceof ICommand.Iassert) {
-//				return "(assert " + ((ICommand.Iassert)command).expr().accept(this) + ")";
-//			} else {
-//				return translateSMT(command);
-//			}
-//		}
 	}
 }

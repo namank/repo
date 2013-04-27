@@ -58,7 +58,7 @@ public class C_echo extends Command implements Iecho {
 
 	@Override
 	public IResponse execute(ISolver solver) {		
-		return new SMTExpr.StringLiteral(formula.toString(), true);
+		return new SMTExpr.StringLiteral(formula.toString(), false);
 	}
 	
 	@Override

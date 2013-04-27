@@ -34,6 +34,8 @@ public interface ISolver {
 	 */
 	IResponse exit();
 	
+	IResponse reset();
+	
 	/** Sets the logic the solver should use; the position argument is
 	 * just used for position information in error messages.
 	 * @return success or error

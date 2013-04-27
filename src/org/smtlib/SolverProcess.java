@@ -97,6 +97,7 @@ public class SolverProcess {
 		String err = listenThru(errors,null);
 		String out = listenThru(fromProcess,endMarker);
 		err = err + listenThru(errors,null);
+		
 		if (log != null) {
 			if (!out.isEmpty()) { log.write("OUT: "); log.write(out); log.write(eol); } // input usually ends with a prompt and no line terminator
 			if (!err.isEmpty()) { log.write("ERR: "); log.write(err); } // input usually ends with a line terminator, we think

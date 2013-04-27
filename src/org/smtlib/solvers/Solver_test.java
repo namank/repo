@@ -122,6 +122,14 @@ public class Solver_test implements ISolver {
 		return smtConfig.responseFactory.get_assertions_response(combined);
 	}
 	
+	public IResponse get_model() {
+		return smtConfig.responseFactory.stringLiteral("Get model not implemented");
+	}
+	
+	public IResponse reset() {
+		return smtConfig.responseFactory.stringLiteral("Reset not implemented");
+	}
+	
 	/** This method adds all the IExpr items in the lists produced from the iter argument into
 	 * the list referenced by the combined argument; the resulting order is to have the items on the
 	 * end of the iter sequence added first into the combined list.

@@ -1,4 +1,5 @@
 /*
+
  * This file is part of the SMT project.
  * Copyright 2010 David R. Cok
  * Created August 2010
@@ -15,6 +16,8 @@ import org.smtlib.IResponse;
 import org.smtlib.ISolver;
 import org.smtlib.IVisitor;
 import org.smtlib.impl.Command;
+import org.smtlib.impl.SMTExpr;
+import org.smtlib.sexpr.ILexToken;
 import org.smtlib.sexpr.Parser;
 import org.smtlib.sexpr.Printer;
 
@@ -58,8 +61,16 @@ public class C_declare_sort extends Command implements Ideclare_sort {
 	static public /*@Nullable*/C_declare_sort parse(Parser p) throws IOException, ParserException {
 		/*@Nullable*/ISymbol id = p.parseSymbol();
 		if (id == null) return null;
-		/*@Nullable*/INumeral numeral = p.parseNumeral();
-		if (numeral == null) return null;
+		ILexToken token = p.peekToken();
+		INumeral numeral;
+		if (token.kind().equals("numeral"))
+		{
+			numeral = p.parseNumeral();
+		}
+		else
+		{
+			numeral = new SMTExpr.Numeral(0);
+		}		
 		String v = id.value();
 		if (v.length() > 0 && (v.charAt(0) == '@' || v.charAt(0) == '.')) {
 			error(p.smt(),"User-defined symbols may not begin with . or @",id.pos());

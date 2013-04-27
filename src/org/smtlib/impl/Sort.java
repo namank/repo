@@ -234,24 +234,6 @@ public abstract class Sort extends Pos.Posable implements ISort {
 			if (this == sort) return true;
 			if (!(sort instanceof ISort)) return false;
 			return expand().equalsNoExpand( ((ISort)sort).expand());
-//			Object esort = sort;
-//			if (sort instanceof IApplication) {
-//				IApplication e = (IApplication)sort;
-//				if (e.family().equals(this.family())) {
-//					boolean matches = true;
-//					int i = 0;
-//					for (ISort p: this.parameters()) {
-//						if (!p.equals(e.param(i++))) { matches = false; break; }
-//					}
-//					if (matches) return true;
-//				}
-//				esort = e.expand();
-//			}
-//			// Substitute abbreviations
-//			ISort ethis = expand();
-//			// If either one was expanded, call equals recursively
-//			if (this != ethis || sort != esort) return ethis.equals(esort);
-//			return false;
 		}
 		
 		@Override

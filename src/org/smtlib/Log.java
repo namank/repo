@@ -83,7 +83,7 @@ public class Log {
 
 		/** Writes the message to the 'out' PrintStream */
 		@Override
-		public void logError(String msg) {
+		public void logError(String msg) { 
 			out.println(msg);
 		}
 		

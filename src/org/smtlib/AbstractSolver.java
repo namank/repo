@@ -38,6 +38,10 @@ public class AbstractSolver implements ISolver {
 	public IResponse exit() {
 		throw new UnsupportedOperationException("AbstractSolver.exit");
 	}
+	
+	public IResponse reset() {
+		throw new UnsupportedOperationException("AbstractSolver.reset");
+	}
 
 	/** @see org.smtlib.ISolver#set_logic(String,IPos) */
 	@Override
@@ -111,6 +115,12 @@ public class AbstractSolver implements ISolver {
 		throw new UnsupportedOperationException("AbstractSolver.get_assertions");
 	}
 
+	@Override
+	public IResponse get_model(){
+		throw new UnsupportedOperationException("AbstractSolver.get_model");
+	}
+
+	
 	/** @see org.smtlib.ISolver#get_proof()*/
 	@Override
 	public IResponse get_proof(){

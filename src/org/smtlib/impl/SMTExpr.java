@@ -79,12 +79,12 @@ public abstract class SMTExpr implements IExpr {
 		 * any escape sequences should be replaced by the actual characters.
 		 */
 		public StringLiteral(String value, boolean quoted) {
-			super(quoted ? Utils.unescape(value) : value);
+			super(quoted ? Utils.unescape(value) : value);			
 		}
 		
 		/** For a StringLiteral, toString produces a properly escaped and quoted string */
 		@Override
-		public String toString() { return Utils.quote(value); }
+		public String toString() { return value; }
 
 		@Override
 		public String kind() { return "string-literal"; }

@@ -14,6 +14,8 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.smtlib.*;
 import org.smtlib.ICommand.Ideclare_fun;
@@ -40,7 +42,9 @@ import org.smtlib.IExpr.IParameterizedIdentifier;
 import org.smtlib.IExpr.IQualifiedIdentifier;
 import org.smtlib.IExpr.IStringLiteral;
 import org.smtlib.IExpr.ISymbol;
+import org.smtlib.IParser.ParserException;
 import org.smtlib.IVisitor.VisitorException;
+import org.smtlib.impl.Pos;
 import org.smtlib.impl.SMTExpr.ParameterizedIdentifier;
 
 // FIXME - in some commands, like assert, push, pop, the effect in solver_test happens even if the effect in the 
@@ -53,10 +57,12 @@ public class Solver_yices extends Solver_test implements ISolver {
 	
 	/** Holds the driver for external processes */
 	private SolverProcess solverProcess;
-	
+	private boolean logicSet = false;
 	/** The string that indicates an Error in the solver reply */
 	static public final String errorIndication = "Error";
 
+	protected org.smtlib.sexpr.Parser responseParser;
+	
 	/** Records the values of options */
 	protected Map<String,IAttributeValue> options = new HashMap<String,IAttributeValue>();
 	{ 
@@ -164,10 +170,10 @@ public class Solver_yices extends Solver_test implements ISolver {
 		return smtConfig.responseFactory.success();
 	}
 
-	@Override
+	//@Override - OLD
 	public IResponse set_logic(String logicName, /*@Nullable*/ IPos pos) {
 		boolean lSet = logicSet;
-		IResponse status = super.set_logic(logicName,pos);
+		IResponse status = smtConfig.responseFactory.success();
 		if (!status.isOK()) return status;
 
 		// FIXME - discrimninate among logics
@@ -179,6 +185,43 @@ public class Solver_yices extends Solver_test implements ISolver {
 		}
 		return status;
 	}
+	
+	
+	protected IResponse parseResponse(String response) {
+		try {
+			Pattern oldbv = Pattern.compile("bv([0-9]+)\\[([0-9]+)\\]");
+			Matcher mm = oldbv.matcher(response);
+			while (mm.find()) {
+				long val = Long.parseLong(mm.group(1));
+				int base = Integer.parseInt(mm.group(2));
+				String bits = "";
+				for (int i=0; i<base; i++) { bits = ((val&1)==0 ? "0" : "1") + bits; val = val >>> 1; }
+				response = response.substring(0,mm.start()) + "#b" + bits + response.substring(mm.end(),response.length());
+				mm = oldbv.matcher(response);
+			}
+			if (response.contains("error")) {
+				// Z3 returns an s-expr (always?)
+				// FIXME - (1) the {Print} also needs {Space}; (2) err_getValueTypes.tst returns a non-error s-expr and then an error s-expr - this fails for that case
+				//Pattern p = Pattern.compile("\\p{Space}*\\(\\p{Blank}*error\\p{Blank}+\"(([\\p{Space}\\p{Print}^[\\\"\\\\]]|\\\\\")*)\"\\p{Blank}*\\)\\p{Space}*");
+				Pattern p = Pattern.compile("\\p{Space}*\\(\\p{Blank}*error\\p{Blank}+\"(([\\p{Print}\\p{Space}&&[^\"\\\\]]|\\\\\")*)\"\\p{Blank}*\\)");
+				Matcher m = p.matcher(response);
+				String concat = "";
+				while (m.lookingAt()) {
+					if (!concat.isEmpty()) concat = concat + "; ";
+					String matched = m.group(1);
+					concat = concat + matched;
+					m.region(m.end(0),m.regionEnd());
+				}
+				if (!concat.isEmpty()) response = concat;
+				return smtConfig.responseFactory.error(response);
+			}
+			responseParser = new org.smtlib.sexpr.Parser(smt(),new Pos.Source(response,null));
+			return responseParser.parseResponse(response);
+		} catch (ParserException e) {
+			return smtConfig.responseFactory.error("ParserException while parsing response: " + response + " " + e);
+		}
+	}
+
 
 	@Override
 	public IResponse set_option(IKeyword key, IAttributeValue value) {
