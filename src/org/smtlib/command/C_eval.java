@@ -2,32 +2,26 @@
  * This file is part of the SMT project.
  * Copyright 2010 David R. Cok
  * Created August 2010
- * 
- * Created by Namank Shah and Seule Ki Kim
- * Boston University
- * For CS 512: Formal Methods
- * Spring 2013
  */
 package org.smtlib.command;
 
 import java.io.IOException;
 
-import org.smtlib.ICommand.Iecho;
+import org.smtlib.ICommand.Iassert;
 import org.smtlib.IExpr;
 import org.smtlib.IParser.ParserException;
 import org.smtlib.IResponse;
 import org.smtlib.ISolver;
 import org.smtlib.IVisitor;
 import org.smtlib.impl.Command;
-import org.smtlib.impl.SMTExpr;
 import org.smtlib.sexpr.Parser;
 import org.smtlib.sexpr.Printer;
 
 /** Implements the assert command */
-public class C_echo extends Command implements Iecho {
+public class C_eval extends Command implements Iassert {
 	
 	/** Constructs a command object given the expression to assert */
-	public C_echo(IExpr expr) {
+	public C_eval(IExpr expr) {
 		formula = expr;
 	}
 	
@@ -38,7 +32,7 @@ public class C_echo extends Command implements Iecho {
 	}
 	
 	/** The command name */
-	public static final String commandName = "echo";
+	public static final String commandName = "eval";
 	
 	/** The command name */
 	@Override
@@ -55,19 +49,21 @@ public class C_echo extends Command implements Iecho {
 	}
 
 	/** Parses the arguments of the command, producing a new command instance */
-	static public /*@Nullable*/ C_echo parse(Parser p) throws IOException, ParserException {
-		IExpr expr = p.parseStringLiteral();
+	static public /*@Nullable*/ C_eval parse(Parser p) throws IOException, ParserException {
+		IExpr expr = p.parseExpr();
 		if (expr == null) return null;
-		return new C_echo(expr);
+		return new C_eval(expr);
 	}
 
 	@Override
-	public IResponse execute(ISolver solver) {		
-		return new SMTExpr.StringLiteral(formula.toString(), false);
+	public IResponse execute(ISolver solver) {
+		return solver.evalExpr(formula);
 	}
 	
 	@Override
 	public <T> T accept(IVisitor<T> v) throws IVisitor.VisitorException {
 		return v.visit(this);
 	}
+
+
 }

@@ -10,6 +10,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import org.smtlib.ICommand.Ideclare_fun;
+import org.smtlib.IExpr;
 import org.smtlib.IExpr.ISymbol;
 import org.smtlib.IParser.ParserException;
 import org.smtlib.IResponse;
@@ -67,7 +68,7 @@ public class C_declare_const extends Command implements Ideclare_fun {
 		/*@Nullable*/ ISymbol symbol = p.parseSymbol();
 		if (symbol == null) return null;
 		List<ISort> argSorts = new LinkedList<ISort>();
-		if (p.isLP()) return null;
+	
 		/*@Nullable*/ ISort result = p.parseSort(null);
 		if (result == null) return null;
 		String v = symbol.value();

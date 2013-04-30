@@ -2,6 +2,11 @@
  * This file is part of the SMT project.
  * Copyright 2010 David R. Cok
  * Created August 2010
+ * 
+ * Modifications by Namank Shah and Seule Ki Kim
+ * Boston University
+ * For CS 512: Formal Methods
+ * Spring 2013
  */
 package org.smtlib.impl;
 
@@ -84,6 +89,7 @@ public abstract class SMTExpr implements IExpr {
 		
 		/** For a StringLiteral, toString produces a properly escaped and quoted string */
 		@Override
+		//return just the unquoted value
 		public String toString() { return value; }
 
 		@Override

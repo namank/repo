@@ -2,6 +2,11 @@
  * This file is part of the SMT project.
  * Copyright 2010 David R. Cok
  * Created August 2010
+ * 
+ * Modifications by Namank Shah and Seule Ki Kim
+ * Boston University
+ * For CS 512: Formal Methods
+ * Spring 2013
  */
 package org.smtlib;
 
@@ -143,5 +148,7 @@ public interface ISolver {
 	 * @return SUCCESS or an error or unsupported
 	 */
 	IResponse get_info(IKeyword option);
+
+	IResponse evalExpr(IExpr formula);
 	
 }

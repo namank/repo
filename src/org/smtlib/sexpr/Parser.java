@@ -299,6 +299,10 @@ public class Parser extends Lexer implements IParser {
 			smtConfig.topLevel = saved; // FIXME - use a try-finally block?
 			return res;
 		} 
+		//if the output is a number, just return it
+		
+		if (t.kind().equals("numeral"))
+			return new Sexpr.Expr((INumeral) t);
 		if (!(t instanceof Sexpr)) {
 			throw new ParserException("Token is not an S-expression token: " + t.getClass(),t.pos());
 		}
@@ -951,7 +955,6 @@ public class Parser extends Lexer implements IParser {
 		if ("unsat".equals(response)) return f.unsat();
 		if ("unknown".equals(response)) return f.unknown();
 		if ("unsupported".equals(response)) return f.unsupported();
-		// FIXME - more - iterate over a list?
 		
 		Sexpr sexpr = parseSexpr();
 		if (sexpr instanceof ISexpr.ISeq) {
@@ -965,7 +968,6 @@ public class Parser extends Lexer implements IParser {
 			}
 		}
 		return sexpr;
-		//return f.error("Could not translate response: " + response);
 	}
 	
 	/** Parses a left parenthesis, returning null and emitting an error message

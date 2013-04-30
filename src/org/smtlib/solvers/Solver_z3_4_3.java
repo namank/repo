@@ -2,13 +2,13 @@
  * This file is part of the SMT project.
  * Copyright 2010 David R. Cok
  * Created August 2010
+ * 
+ * Modifications by Namank Shah and Seule Ki Kim
+ * Boston University
+ * For CS 512: Formal Methods
+ * Spring 2013
  */
 package org.smtlib.solvers;
-
-// Items not implemented:
-//   attributed expressions
-//   get-values
-//   some error detection and handling
 
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -38,7 +38,6 @@ import org.smtlib.IExpr.IQualifiedIdentifier;
 import org.smtlib.IExpr.IStringLiteral;
 import org.smtlib.IParser.ParserException;
 import org.smtlib.impl.Pos;
-import org.smtlib.impl.SMTExpr;
 import org.smtlib.sexpr.Printer;
 
 /** This class is an adapter that takes the SMT-LIB ASTs and translates them into Z3 commands */
@@ -120,12 +119,20 @@ public class Solver_z3_4_3 extends AbstractSolver implements ISolver {
 			return smtConfig.responseFactory.error("Error writing to Z3 solver: " + e);
 		}
 	}
-
+	//reset declarations and assertions made so far
 	@Override
 	public IResponse reset() {
 		try {
 			String s = solverProcess.sendAndListen("(reset)\n");
 			IResponse response = parseResponse(s);
+			//need to reset the state so far on our side as well
+			logicSet=false;
+			checkSatStatus = null;
+			pushes = 0;
+			pushesStack = new LinkedList<Integer>();
+			pushesStack.add(0);
+			options = new HashMap<String,IAttributeValue>();
+			options.putAll(Utils.defaults);
 			return response;
 		} catch (IOException e) {
 			return smtConfig.responseFactory.error("Error writing to Z3 solver: " + e);
@@ -162,7 +169,6 @@ public class Solver_z3_4_3 extends AbstractSolver implements ISolver {
 				mm = oldbv.matcher(response);
 			}
 			if (response.contains("error")) {
-				// Z3 returns an s-expr (always?)
 				Pattern p = Pattern.compile("\\p{Space}*\\(\\p{Blank}*error\\p{Blank}+\"(([\\p{Print}\\p{Space}&&[^\"\\\\]]|\\\\\")*)\"\\p{Blank}*\\)");
 				Matcher m = p.matcher(response);
 				String concat = "";
@@ -202,6 +208,29 @@ public class Solver_z3_4_3 extends AbstractSolver implements ISolver {
 			return smtConfig.responseFactory.error("Failed to assert expression: " + e + " " + sexpr);
 		}
 		return response;
+	}
+	
+	//evaluate the given expression and return response from Z3
+	//we do not bother parsing the response, because the output sort may vary based on the result sort of function expression
+	public IResponse evalExpr(IExpr sexpr) {
+		
+		if (!logicSet) {
+			return smtConfig.responseFactory.error("The logic must be set before an eval command is issued");
+		}
+		if (checkSatStatus != smtConfig.responseFactory.sat()) {
+			return smtConfig.responseFactory.error("The get-model command is only valid immediately after check-sat returned sat");
+		}
+		try {			
+			String s = solverProcess.sendAndListen("(eval ",translate(sexpr),")\n");
+			s = s.trim();
+			pushes++; // FIXME
+			checkSatStatus = null;
+			return smtConfig.responseFactory.stringLiteral(s);			
+		} catch (IVisitor.VisitorException e) {
+			return smtConfig.responseFactory.error("Failed to evaluate expression: " + e + " " + sexpr);
+		} catch (Exception e) {
+			return smtConfig.responseFactory.error("Failed to evaluate expression: " + e + " " + sexpr);
+		}
 	}
 	
 	@Override
@@ -248,15 +277,17 @@ public class Solver_z3_4_3 extends AbstractSolver implements ISolver {
 		}
 	}
 	
+	//call Z3 solver to get current model
 	public IResponse get_model() {
 		if (!logicSet) {
 			return smtConfig.responseFactory.error("The logic must be set before a get-model command is issued");
 		}
 		
 		if (checkSatStatus != smtConfig.responseFactory.sat()) {
-			return smtConfig.responseFactory.error("The get-proof command is only valid immediately after check-sat returned sat");
+			return smtConfig.responseFactory.error("The get-model command is only valid immediately after check-sat returned sat");
 		}
 		
+		//get the model from Z3 and return it
 		try
 		{
 			StringBuilder sb = new StringBuilder();
@@ -378,10 +409,8 @@ public class Solver_z3_4_3 extends AbstractSolver implements ISolver {
 		}
 		if (Utils.PRODUCE_ASSIGNMENTS.equals(option) || 
 				Utils.PRODUCE_PROOFS.equals(option) ||
-				Utils.PRODUCE_UNSAT_CORES.equals(option)) {
-			if (logicSet) return smtConfig.responseFactory.error("The value of the " + option + " option must be set before the set-logic command");
-		}
-		if (Utils.PRODUCE_MODELS.equals(option)) {
+				Utils.PRODUCE_UNSAT_CORES.equals(option) ||
+				Utils.PRODUCE_MODELS.equals(option)) {
 			if (logicSet) return smtConfig.responseFactory.error("The value of the " + option + " option must be set before the set-logic command");
 		}
 		if (Utils.VERBOSITY.equals(option)) {
@@ -431,7 +460,6 @@ public class Solver_z3_4_3 extends AbstractSolver implements ISolver {
 			}
 		}
 		
-
 		return smtConfig.responseFactory.success();
 	}
 
@@ -539,6 +567,7 @@ public class Solver_z3_4_3 extends AbstractSolver implements ISolver {
 		}
 	}
 	
+	//return the proof generated by Z3
 	@Override 
 	public IResponse get_proof() {
 		if (!Utils.TRUE.equals(get_option(smtConfig.exprFactory.keyword(Utils.PRODUCE_PROOFS)))) {
@@ -554,6 +583,7 @@ public class Solver_z3_4_3 extends AbstractSolver implements ISolver {
 		}
 	}
 
+	//return the minimal unsat core returned by Z3
 	@Override 
 	public IResponse get_unsat_core() {
 		if (!Utils.TRUE.equals(get_option(smtConfig.exprFactory.keyword(Utils.PRODUCE_UNSAT_CORES)))) {
@@ -569,6 +599,7 @@ public class Solver_z3_4_3 extends AbstractSolver implements ISolver {
 		}
 	}
 
+	//if the model was satisfiable, get assignment of values from Z3
 	@Override 
 	public IResponse get_assignment() {
 		if (!Utils.TRUE.equals(get_option(smtConfig.exprFactory.keyword(Utils.PRODUCE_ASSIGNMENTS)))) {

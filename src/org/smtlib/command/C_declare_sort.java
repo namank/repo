@@ -1,8 +1,11 @@
-/*
-
- * This file is part of the SMT project.
+/* This file is part of the SMT project.
  * Copyright 2010 David R. Cok
  * Created August 2010
+ * 
+ * Modifications by Namank Shah and Seule Ki Kim
+ * Boston University
+ * For CS 512: Formal Methods
+ * Spring 2013
  */
 package org.smtlib.command;
 
@@ -61,6 +64,7 @@ public class C_declare_sort extends Command implements Ideclare_sort {
 	static public /*@Nullable*/C_declare_sort parse(Parser p) throws IOException, ParserException {
 		/*@Nullable*/ISymbol id = p.parseSymbol();
 		if (id == null) return null;
+		//check if user has indicated arity
 		ILexToken token = p.peekToken();
 		INumeral numeral;
 		if (token.kind().equals("numeral"))
@@ -68,6 +72,7 @@ public class C_declare_sort extends Command implements Ideclare_sort {
 			numeral = p.parseNumeral();
 		}
 		else
+		//default to arity 0 if user did not indicate anything
 		{
 			numeral = new SMTExpr.Numeral(0);
 		}		

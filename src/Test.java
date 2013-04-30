@@ -1,3 +1,8 @@
+/* Modifications by Namank Shah and Seule Ki Kim
+ * Boston University
+ * For CS 512: Formal Methods
+ * Spring 2013
+ */
 import org.smtlib.*;
 import org.smtlib.solvers.*;
 import org.smtlib.impl.*;
