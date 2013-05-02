@@ -450,5 +450,11 @@ public class Solver_test implements ISolver {
 			return list.get(0); // FIXME - return all errors?
 		}
 	}
+
+	@Override
+	public IResponse evalExpr(IExpr formula) {
+		// TODO Auto-generated method stub
+		return null;
+	}
 	
 }
